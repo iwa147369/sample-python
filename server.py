@@ -1,7 +1,6 @@
 import os
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
-import json
 
 # Set the directory you want to serve files from
 DIRECTORY = './imgs'
@@ -13,19 +12,11 @@ class CustomHandler(SimpleHTTPRequestHandler):
             path = '/index.html'  # Default path when accessing root
         return os.path.join(DIRECTORY, urllib.parse.unquote(path.lstrip('/')))
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')  # Allow CORS for GET requests
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
         if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
             self.wfile.write(self.upload_form().encode('utf-8'))
         else:
             # Serve the file from the directory if the path is not root
@@ -60,7 +51,6 @@ class CustomHandler(SimpleHTTPRequestHandler):
         return file_links if file_links else '<li>No files uploaded yet.</li>'
 
     def do_POST(self):
-        self.send_header('Access-Control-Allow-Origin', '*')  # Allow CORS for POST requests
         if self.path == '/':
             content_length = int(self.headers['Content-Length'])
             body = self.rfile.read(content_length)
@@ -68,24 +58,15 @@ class CustomHandler(SimpleHTTPRequestHandler):
             # Parse the uploaded file
             boundary = self.headers['Content-Type'].split('=')[1].encode()
             parts = body.split(boundary)[1:-1]
-            uploaded_files = []
-
             for part in parts:
                 if b'filename' in part:
                     filename = self.get_filename(part)
                     file_data = self.get_file_data(part)
                     self.save_file(filename, file_data)
-                    uploaded_files.append(filename)
 
-            # Create the response with the URLs of uploaded files
-            file_urls = [f'http://localhost:8000/{filename}' for filename in uploaded_files]
-            response = json.dumps({'uploaded_files': file_urls})
-
-            # Send response
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
+            self.send_response(303)
+            self.send_header('Location', '/')
             self.end_headers()
-            self.wfile.write(response.encode('utf-8'))
 
     def get_filename(self, part):
         header, _ = part.split(b'\r\n\r\n', 1)
@@ -103,7 +84,9 @@ class CustomHandler(SimpleHTTPRequestHandler):
             f.write(file_data)
 
 def run(server_class=HTTPServer, handler_class=CustomHandler, port=8000):
-    os.makedirs(DIRECTORY, exist_ok=True)  # Create the directory if it doesn't exist
+    # Check if the directory exists and create it if it doesn't
+    os.makedirs(DIRECTORY, exist_ok=True)
+    
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     print(f'Serving files from {DIRECTORY} at http://localhost:{port}')
