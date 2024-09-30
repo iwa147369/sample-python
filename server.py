@@ -1,6 +1,7 @@
 import os
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import urllib.parse
+import json
 
 # Set the directory you want to serve files from
 DIRECTORY = './imgs'
@@ -50,23 +51,35 @@ class CustomHandler(SimpleHTTPRequestHandler):
             file_links += f'<li><a href="{filename}">{filename}</a></li>'
         return file_links if file_links else '<li>No files uploaded yet.</li>'
 
-    def do_POST(self):
-        if self.path == '/':
-            content_length = int(self.headers['Content-Length'])
-            body = self.rfile.read(content_length)
+    import json
 
-            # Parse the uploaded file
-            boundary = self.headers['Content-Type'].split('=')[1].encode()
-            parts = body.split(boundary)[1:-1]
-            for part in parts:
-                if b'filename' in part:
-                    filename = self.get_filename(part)
-                    file_data = self.get_file_data(part)
-                    self.save_file(filename, file_data)
+def do_POST(self):
+    if self.path == '/':
+        content_length = int(self.headers['Content-Length'])
+        body = self.rfile.read(content_length)
 
-            self.send_response(303)
-            self.send_header('Location', '/')
-            self.end_headers()
+        # Parse the uploaded file
+        boundary = self.headers['Content-Type'].split('=')[1].encode()
+        parts = body.split(boundary)[1:-1]
+        uploaded_files = []
+
+        for part in parts:
+            if b'filename' in part:
+                filename = self.get_filename(part)
+                file_data = self.get_file_data(part)
+                self.save_file(filename, file_data)
+                uploaded_files.append(filename)
+
+        # Create the response with the URLs of uploaded files
+        file_urls = [f'http://localhost:8000/{filename}' for filename in uploaded_files]
+        response = json.dumps({'uploaded_files': file_urls})
+
+        # Send response
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(response.encode('utf-8'))
+
 
     def get_filename(self, part):
         header, _ = part.split(b'\r\n\r\n', 1)
