@@ -12,13 +12,6 @@ class CustomHandler(SimpleHTTPRequestHandler):
             path = '/index.html'  # Default path when accessing root
         return os.path.join(DIRECTORY, urllib.parse.unquote(path.lstrip('/')))
 
-    def do_OPTIONS(self):
-      self.send_response(200)
-      self.send_header('Access-Control-Allow-Origin', '*')
-      self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-      self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-      self.end_headers()
-
     def do_GET(self):
         if self.path == '/':
             self.send_response(200)
@@ -91,7 +84,9 @@ class CustomHandler(SimpleHTTPRequestHandler):
             f.write(file_data)
 
 def run(server_class=HTTPServer, handler_class=CustomHandler, port=8000):
-    os.makedirs(DIRECTORY, exist_ok=True)  # Create the directory if it doesn't exist
+    # Check if the directory exists and create it if it doesn't
+    os.makedirs(DIRECTORY, exist_ok=True)
+    
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     print(f'Serving files from {DIRECTORY} at http://localhost:{port}')
